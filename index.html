@@ -40,6 +40,24 @@
         <input type="text" class="todo-input" id="todo-input" placeholder="오늘 할 일을 입력하세요..." autocomplete="off">
         <button class="add-btn" id="add-btn">추가</button>
       </div>
+
+      <div class="cat-bar">
+        <div class="cat-line">
+          <span class="cat-bar-label">새 할 일</span>
+          <div class="chip-group" id="new-cat-group" role="group" aria-label="새 할 일 분류 선택">
+            <button type="button" class="cat-chip" data-cat="work" aria-pressed="false">업무</button>
+            <button type="button" class="cat-chip" data-cat="personal" aria-pressed="false">개인</button>
+          </div>
+        </div>
+        <div class="cat-line">
+          <span class="cat-bar-label">보기</span>
+          <div class="chip-group cat-filter" role="group" aria-label="분류 필터">
+            <button type="button" class="filter-chip" data-filter="all" aria-pressed="false">전체</button>
+            <button type="button" class="filter-chip" data-filter="work" aria-pressed="false">업무</button>
+            <button type="button" class="filter-chip" data-filter="personal" aria-pressed="false">개인</button>
+          </div>
+        </div>
+      </div>
     </header>
 
     <main class="list-container">
@@ -95,6 +113,18 @@
       </div>
     </header>
 
+    <!-- 큰 달력 분류 필터 -->
+    <div class="cat-bar cal-cat-bar">
+      <div class="cat-line">
+        <span class="cat-bar-label">보기</span>
+        <div class="chip-group cat-filter" role="group" aria-label="분류 필터">
+          <button type="button" class="filter-chip" data-filter="all" aria-pressed="false">전체</button>
+          <button type="button" class="filter-chip" data-filter="work" aria-pressed="false">업무</button>
+          <button type="button" class="filter-chip" data-filter="personal" aria-pressed="false">개인</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 반복 일정 입력 패널 -->
     <div class="repeat-panel" id="repeat-panel">
       <div class="repeat-panel-head">
@@ -116,6 +146,14 @@
         <button type="button" class="repeat-preset-btn" data-preset="all">매일</button>
         <button type="button" class="repeat-preset-btn" data-preset="weekday">평일</button>
         <button type="button" class="repeat-preset-btn" data-preset="clear">선택 해제</button>
+      </div>
+
+      <div class="cat-line">
+        <span class="cat-bar-label">분류</span>
+        <div class="chip-group" id="repeat-cat-group" role="group" aria-label="반복 일정 분류 선택">
+          <button type="button" class="cat-chip" data-cat="work" aria-pressed="false">업무</button>
+          <button type="button" class="cat-chip" data-cat="personal" aria-pressed="false">개인</button>
+        </div>
       </div>
 
       <div class="repeat-input-row">
@@ -199,6 +237,22 @@
           </div>
 
           <div class="form-section">
+            <h3 class="section-title">🏷️ 분류 없는 할 일 정리</h3>
+            <div class="option-desc" style="margin-bottom: 12px;">
+              분류를 쓰기 전에 적어 둔 할 일이 <strong id="uncat-count">0개</strong> 있습니다.
+              이런 항목은 업무/개인 필터를 켰을 때 보이지 않으니, 한 번에 지정해 두면 편합니다.
+            </div>
+            <div class="backup-buttons">
+              <button type="button" id="assign-work-btn" class="backup-btn">
+                <span class="material-symbols-outlined" style="font-size: 16px !important;">work</span>모두 업무로 지정
+              </button>
+              <button type="button" id="assign-personal-btn" class="backup-btn outline">
+                <span class="material-symbols-outlined" style="font-size: 16px !important;">person</span>모두 개인으로 지정
+              </button>
+            </div>
+          </div>
+
+          <div class="form-section">
             <h3 class="section-title">💾 데이터 저장 옵션</h3>
             <div class="option-item">
               <input type="checkbox" id="autosave-checkbox" class="option-input" checked>
@@ -269,31 +323,40 @@
       <div class="tab-pane" id="pane-policy-docs">
         <div class="document-body">
           <div class="callout info" style="margin-bottom: 16px;">
-            ✓ <strong>개인정보를 수집하지 않습니다.</strong> 이 앱은 로그인이 없으며, 입력한 내용은 서버로 전송되지 않고 사용 중인 기기 안(브라우저 저장소)에만 저장됩니다. 제작자를 포함한 누구도 사용자의 메모 내용을 볼 수 없습니다.
+            ✓ <strong>개인 식별 정보를 수집하지 않습니다.</strong> 이 앱에는 자체 회원가입이 없고 제작자가 운영하는 서버도 없습니다. 입력한 내용은 기기 안(브라우저 저장소)에 저장되며, 구글 드라이브 동기화를 켠 경우에만 <strong>사용자 본인의</strong> 드라이브 앱 전용 폴더에 함께 저장됩니다. 제작자를 포함한 누구도 그 내용을 볼 수 없습니다.
           </div>
 
           <h2>개인정보 처리방침 안내</h2>
-          <p>본 소프트웨어는 별도의 인터넷 네트워크 레이어나 계정 데이터베이스를 두고 있지 않는 오프라인 로컬 저장용 일정 관리 프로그램입니다.</p>
           <ul>
-            <li><strong>처리 목적:</strong> 날짜별 할 일 리스트의 로컬 저장 및 캘린더 요약 렌더링</li>
-            <li><strong>처리 항목:</strong> 할 일 텍스트, 완료 여부, 메모숨김 정보, 생성 시각 메타데이터</li>
-            <li><strong>보유 기간:</strong> 사용자가 삭제하거나 브라우저 LocalStorage 데이터를 초기화할 때까지 보관</li>
-            <li><strong>파기 방법:</strong> 앱 내 항목 삭제 또는 브라우저 캐시 삭제 시 즉각 제거</li>
-            <li><strong>제3자 제공/위탁:</strong> 서버 전송 통로가 없어 타자 제공이 원천 불가함</li>
+            <li><strong>처리 목적:</strong> 날짜별 할 일의 저장, 분류(업무/개인) 필터링, 캘린더 요약 표시, 기기 간 동기화</li>
+            <li><strong>처리 항목:</strong> 할 일 텍스트, 완료 여부, 분류, 상세 메모, 메모 접힘 상태, 생성·수정 시각 메타데이터</li>
+            <li><strong>저장 위치:</strong> 사용 중인 기기의 브라우저 저장소. 동기화를 켠 경우 사용자 본인의 구글 드라이브 앱 전용 폴더(<code>drive.appdata</code>)</li>
+            <li><strong>요청 권한:</strong> 앱 전용 폴더 접근 권한 한 가지뿐입니다. 드라이브의 다른 문서·사진·파일은 조회조차 할 수 없습니다.</li>
+            <li><strong>보유 기간:</strong> 사용자가 삭제하거나 브라우저 저장소를 초기화할 때까지</li>
+            <li><strong>파기 방법:</strong> 앱 내 항목 삭제, 브라우저 사이트 데이터 삭제, 구글 계정 권한 관리 페이지에서 권한 철회 및 드라이브 앱 데이터 삭제</li>
+            <li><strong>제3자 제공:</strong> 제공·판매·공유하지 않으며, 광고나 인공지능 학습 목적으로 사용하지 않습니다.</li>
           </ul>
 
           <h2>서비스 이용약관</h2>
-          <p><strong>제1조 (목적)</strong> 본 약관은 웹용 일정 관리 유틸리티의 무상 라이선스 이용 규정을 목적으로 합니다.</p>
-          <p><strong>제2조 (면책 사항)</strong> 본 프로그램은 사용자의 브라우저 LocalStorage에 가동되므로, 사용자의 임의 브라우저 쿠키/데이터 초기화나 디바이스 손상으로 인한 데이터 유실에 대해 개발자는 민형사상의 책임을 지지 않습니다.</p>
-          <p><strong>제3조 (디지털콘텐츠 권리보호)</strong> 본 소프트웨어는 전적으로 무료 배포용 저작물로서 표준약관 상의 환불 절차는 존재하지 않으며, 오프라인 보안 및 캘린더 일정 보존 권리를 적극 보장합니다.</p>
+          <p><strong>제1조 (목적)</strong> 본 약관은 개인이 무상으로 제작·배포하는 일정 관리 웹 애플리케이션의 이용 조건을 정합니다.</p>
+          <p><strong>제2조 (계정)</strong> 자체 회원가입은 없습니다. 기기 간 동기화를 원하는 경우에만 선택적으로 구글 계정 로그인을 이용할 수 있으며, 로그인하지 않아도 모든 기본 기능을 쓸 수 있습니다.</p>
+          <p><strong>제3조 (데이터 관리 책임)</strong> 저장된 데이터의 관리 책임은 사용자에게 있습니다. 브라우저 데이터 삭제, 기기 초기화, 동기화 충돌 등으로 데이터가 소실될 수 있으므로 중요한 내용은 백업 기능으로 별도 보관하시기 바랍니다.</p>
+          <p><strong>제4조 (면책)</strong> 본 앱은 "있는 그대로" 제공되며 무결성이나 지속적인 가용성을 보증하지 않습니다. 관련 법령이 허용하는 범위에서 제작자는 이용 또는 이용 불능으로 인한 데이터 소실이나 그 밖의 손해에 책임을 지지 않습니다.</p>
+          <p><strong>제5조 (저작권)</strong> 본 앱은 무료 배포용 저작물입니다. 자유롭게 공유·재배포할 수 있으나 원본을 수정·개작하여 배포할 수 없으며 상업적 이용을 금지합니다.</p>
+
+          <p style="margin-top: 16px;">
+            전문은 아래에서 확인할 수 있습니다.<br>
+            <a href="./privacy.html" target="_blank" rel="noopener">개인정보처리방침 전문</a> ·
+            <a href="./terms.html" target="_blank" rel="noopener">서비스 약관 전문</a>
+          </p>
 
           <h2>제작자 및 저작권 안내</h2>
-          <p><strong>만든 사람:</strong> Kimwonhee<br><strong>버전:</strong> 1.0.0</p>
+          <p><strong>만든 사람:</strong> Kimwonhee<br><strong>버전:</strong> 1.1.0<br><strong>문의:</strong> <a href="mailto:abcdwh1@gmail.com">abcdwh1@gmail.com</a></p>
           <p>© 2026 Kimwonhee. 이 앱은 무료로 자유롭게 공유·재배포할 수 있습니다. 단, 원본을 수정하거나 개작하여 배포할 수 없으며, 상업적 이용을 금지합니다. </p>
           <p style="font-size: 0.78rem; color: var(--text-muted);">개인이 무료로 제작·배포한 앱으로, 광고나 수익 목적이 없습니다.</p>
 
           <div style="margin-top: 30px; border-top: 1px dashed var(--card-border); padding-top: 10px; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
-            최초 시행일: 2026-06-25 | 최근 변경일: 2026-08-10
+            최초 시행일: 2026-06-25 | 최근 변경일: 2026-09-10
           </div>
         </div>
       </div>

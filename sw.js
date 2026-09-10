@@ -7,7 +7,7 @@
  * 재배포 시 제작자(Kimwonhee)와 출처를 반드시 표시해 주세요.
  */
 
-const CACHE_NAME = 'todomemo-v12';
+const CACHE_NAME = 'todomemo-v15';
 const FONT_CACHE = 'todomemo-fonts-v1';
 
 const ASSETS = [

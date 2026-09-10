@@ -1552,3 +1552,211 @@ body.dragging-active {
 .sync-dot.on { background: var(--primary-color); }
 .sync-dot.busy { background: var(--gold-color); }
 .sync-dot.error { background: var(--danger-color); }
+
+/* ==========================================================================
+   분류(업무/개인) — 선택 칩, 보기 필터, 색 표시
+   ========================================================================== */
+:root {
+  --cat-work: #00754A;
+  --cat-personal: #b8860b;
+  --cat-work-soft: rgba(0, 117, 74, 0.12);
+  --cat-personal-soft: rgba(184, 134, 11, 0.14);
+}
+
+body.dark-theme, body:not(.light-theme) {
+  --cat-work: #4dbf94;
+  --cat-personal: #e0bd77;
+  --cat-work-soft: rgba(77, 191, 148, 0.16);
+  --cat-personal-soft: rgba(224, 189, 119, 0.16);
+}
+
+/* ---- 칩 바 ---- */
+.cat-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 12px;
+}
+
+.cal-cat-bar {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.cat-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cat-bar-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chip-group {
+  display: flex;
+  gap: 6px;
+}
+
+/* 손가락으로 누르기 좋은 크기(최소 36px)를 유지한다 */
+.cat-chip,
+.filter-chip {
+  min-height: 36px;
+  padding: 6px 16px;
+  border-radius: 50px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.cat-chip:hover,
+.filter-chip:hover {
+  border-color: var(--primary-color);
+  color: var(--text-main);
+}
+
+.cat-chip:focus-visible,
+.filter-chip:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.cat-chip:active,
+.filter-chip:active {
+  transform: scale(0.95);
+}
+
+.cat-chip[data-cat="work"].active,
+.filter-chip[data-filter="work"].active {
+  background: var(--cat-work);
+  border-color: var(--cat-work);
+  color: #fff;
+}
+
+.cat-chip[data-cat="personal"].active,
+.filter-chip[data-filter="personal"].active {
+  background: var(--cat-personal);
+  border-color: var(--cat-personal);
+  color: #1E3932;
+}
+
+.filter-chip[data-filter="all"].active {
+  background: var(--text-main);
+  border-color: var(--text-main);
+  color: var(--card-bg);
+}
+
+/* ---- 목록 항목 표시 ---- */
+.todo-item[data-cat="work"] {
+  border-left: 4px solid var(--cat-work);
+}
+
+.todo-item[data-cat="personal"] {
+  border-left: 4px solid var(--cat-personal);
+}
+
+.cat-badge {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 50px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.cat-badge[data-cat="work"] {
+  background: var(--cat-work-soft);
+  color: var(--cat-work);
+}
+
+.cat-badge[data-cat="personal"] {
+  background: var(--cat-personal-soft);
+  color: var(--cat-personal);
+}
+
+.todo-item.done .cat-badge {
+  opacity: 0.5;
+}
+
+/* ---- 큰 달력 셀 안의 분류 점 ---- */
+.cell-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cell-cat-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.cell-todo-item[data-cat="work"] .cell-cat-dot {
+  background: var(--cat-work);
+}
+
+.cell-todo-item[data-cat="personal"] .cell-cat-dot {
+  background: var(--cat-personal);
+}
+
+/* 필터가 켜져 있을 때 지금 무엇을 보고 있는지 은근히 알려준다 */
+body[data-filter="work"] .todo-input:focus {
+  border-color: var(--cat-work);
+  box-shadow: 0 0 0 3px var(--cat-work-soft);
+}
+
+body[data-filter="personal"] .todo-input:focus {
+  border-color: var(--cat-personal);
+  box-shadow: 0 0 0 3px var(--cat-personal-soft);
+}
+
+.backup-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 화면이 좁을 때 칩 바가 두 줄로 자연스럽게 접히도록 */
+@media (max-width: 420px) {
+  .cat-bar {
+    gap: 6px 12px;
+  }
+  .cat-chip,
+  .filter-chip {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+}
+
+/* 정책 탭 안의 링크·인라인 코드 */
+.document-body a {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+body:not(.light-theme) .document-body a {
+  color: var(--green-light);
+}
+
+.document-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  background: var(--bg-color);
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  word-break: break-all;
+}

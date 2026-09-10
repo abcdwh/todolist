@@ -82,6 +82,14 @@ const syncDot = document.getElementById('sync-dot');
 
 const toastEl = document.getElementById('toast');
 
+// 분류(업무/개인) DOM
+const newCatGroup = document.getElementById('new-cat-group');
+const repeatCatGroup = document.getElementById('repeat-cat-group');
+const filterChips = document.querySelectorAll('.cat-filter .filter-chip');
+const uncatCountEl = document.getElementById('uncat-count');
+const assignWorkBtn = document.getElementById('assign-work-btn');
+const assignPersonalBtn = document.getElementById('assign-personal-btn');
+
 // ---------- 상태 ----------
 let selectedDate = '';
 let smallCalYear = 0;
@@ -92,6 +100,15 @@ let activeDropdown = null;
 let largeCalYear = 0;
 let largeCalMonth = 0;
 let isRepeatPanelOpen = false;
+
+// 분류 상태 — 기기별로 저장하며 드라이브로 동기화하지 않는다.
+// (학교 PC는 업무만 켜 두고, 집 폰은 전체로 두는 식의 사용을 위해)
+const CATEGORY_LABELS = { work: '업무', personal: '개인' };
+const CATEGORY_CHANGE_LABELS = { work: '업무로 변경', personal: '개인으로 변경' };
+const CATEGORY_JOSA = { work: '업무로', personal: '개인으로' };   // 조사 처리용
+let newTaskCategory = localStorage.getItem('todomemo_new_cat') || 'work';
+let viewFilter = localStorage.getItem('todomemo_view_filter') || 'all';
+let repeatCategory = localStorage.getItem('todomemo_new_cat') || 'work';
 
 // ---------- 유틸 ----------
 let toastTimer = null;
@@ -115,6 +132,76 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ==========================================================================
+// 분류(업무/개인) — 선택 칩과 보기 필터
+// ==========================================================================
+function matchesFilter(task) {
+  if (viewFilter === 'all') return true;
+  return task.category === viewFilter;
+}
+
+function filterTasks(list) {
+  return list.filter(matchesFilter);
+}
+
+function updateChipGroup(group, value, attr) {
+  if (!group) return;
+  group.querySelectorAll('button').forEach((btn) => {
+    const on = btn.dataset[attr] === value;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function updateCategoryUI() {
+  updateChipGroup(newCatGroup, newTaskCategory, 'cat');
+  updateChipGroup(repeatCatGroup, repeatCategory, 'cat');
+  // 필터 칩은 메인/큰달력 두 군데에 있으므로 항상 함께 맞춰준다.
+  filterChips.forEach((btn) => {
+    const on = btn.dataset.filter === viewFilter;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.body.dataset.filter = viewFilter;
+}
+
+function setNewTaskCategory(cat) {
+  newTaskCategory = cat;
+  localStorage.setItem('todomemo_new_cat', cat);
+  updateCategoryUI();
+}
+
+function setViewFilter(filter) {
+  viewFilter = filter;
+  localStorage.setItem('todomemo_view_filter', filter);
+  // 업무만 보는 중에 입력하면 업무로 들어가는 게 자연스러우므로 입력 분류도 맞춰준다.
+  if (filter === 'work' || filter === 'personal') {
+    newTaskCategory = filter;
+    localStorage.setItem('todomemo_new_cat', filter);
+  }
+  updateCategoryUI();
+  refreshAfterDataChange();
+}
+
+if (newCatGroup) {
+  newCatGroup.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => setNewTaskCategory(btn.dataset.cat));
+  });
+}
+
+if (repeatCatGroup) {
+  repeatCatGroup.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      repeatCategory = btn.dataset.cat;
+      updateCategoryUI();
+    });
+  });
+}
+
+filterChips.forEach((btn) => {
+  btn.addEventListener('click', () => setViewFilter(btn.dataset.filter));
+});
+
 // ---------- 초기 기동 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   await window.TaskRepository.init();
@@ -132,6 +219,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   largeCalMonth = today.getMonth();
 
   applyTheme();
+  updateCategoryUI();
   updateDateDisplay();
   renderTasks();
   loadSettingsForm();
@@ -167,10 +255,17 @@ function updateDateDisplay() {
 
 // ---------- 할 일 목록 렌더링 ----------
 function renderTasks() {
-  const tasks = window.TaskRepository.getTasksByDate(selectedDate);
+  const allTasks = window.TaskRepository.getTasksByDate(selectedDate);
+  const tasks = filterTasks(allTasks);
   todoList.innerHTML = '';
 
   if (tasks.length === 0) {
+    if (viewFilter !== 'all' && allTasks.length > 0) {
+      emptyState.textContent =
+        `${CATEGORY_LABELS[viewFilter]} 할 일은 없습니다. (다른 분류 ${allTasks.length}개 숨김)`;
+    } else {
+      emptyState.textContent = '이 날짜에는 등록된 할 일이 없습니다.';
+    }
     emptyState.style.display = 'block';
     return;
   }
@@ -180,6 +275,7 @@ function renderTasks() {
     const li = document.createElement('li');
     li.className = `todo-item ${task.done ? 'done' : ''}`;
     li.dataset.id = task.id;
+    li.dataset.cat = task.category || '';
 
     // 메인 정보 행
     const mainRow = document.createElement('div');
@@ -196,6 +292,14 @@ function renderTasks() {
 
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'todo-content-wrapper';
+
+    if (task.category) {
+      const badge = document.createElement('span');
+      badge.className = 'cat-badge';
+      badge.dataset.cat = task.category;
+      badge.textContent = CATEGORY_LABELS[task.category];
+      contentWrapper.appendChild(badge);
+    }
 
     const textSpan = document.createElement('span');
     textSpan.className = 'todo-text';
@@ -233,6 +337,13 @@ function renderTasks() {
     menuEditBtn.className = 'todo-menu-item';
     menuEditBtn.innerHTML = '<span class="material-symbols-outlined menu-icon">edit</span> 편집';
 
+    // 분류 전환: 업무 ↔ 개인 (미분류였다면 업무로)
+    const nextCategory = task.category === 'work' ? 'personal' : 'work';
+    const menuCatBtn = document.createElement('button');
+    menuCatBtn.className = 'todo-menu-item';
+    menuCatBtn.innerHTML =
+      `<span class="material-symbols-outlined menu-icon">label</span> ${CATEGORY_CHANGE_LABELS[nextCategory]}`;
+
     const menuMoveBtn = document.createElement('button');
     menuMoveBtn.className = 'todo-menu-item';
     menuMoveBtn.innerHTML = '<span class="material-symbols-outlined menu-icon">arrow_forward</span> 내일로 이동';
@@ -243,6 +354,7 @@ function renderTasks() {
 
     menuPopup.appendChild(menuMemoBtn);
     menuPopup.appendChild(menuEditBtn);
+    menuPopup.appendChild(menuCatBtn);
     menuPopup.appendChild(menuMoveBtn);
     menuPopup.appendChild(menuDeleteBtn);
     menuContainer.appendChild(triggerBtn);
@@ -315,6 +427,18 @@ function renderTasks() {
     menuEditBtn.addEventListener('click', () => {
       closeActiveDropdown();
       enableInlineEdit(li, task);
+    });
+
+    menuCatBtn.addEventListener('click', () => {
+      closeActiveDropdown();
+      window.TaskRepository.updateTask(task.id, { category: nextCategory });
+      refreshAfterDataChange();
+      // 필터 때문에 방금 바꾼 항목이 사라지면 어디로 갔는지 알려준다.
+      if (viewFilter !== 'all' && viewFilter !== nextCategory) {
+        showToast(`${CATEGORY_JOSA[nextCategory]} 바꿔서 지금 보기에서는 숨겨졌습니다.`);
+      } else {
+        showToast(`${CATEGORY_JOSA[nextCategory]} 바꿨습니다.`);
+      }
     });
 
     menuMoveBtn.addEventListener('click', () => {
@@ -454,9 +578,14 @@ function enableInlineEdit(li, task) {
 function addNewTodo() {
   const text = todoInput.value.trim();
   if (!text) return;
-  window.TaskRepository.addTask(selectedDate, text);
+  window.TaskRepository.addTask(selectedDate, text, newTaskCategory);
   todoInput.value = '';
   refreshAfterDataChange();
+
+  // 필터에 걸려 방금 넣은 게 화면에 안 보이는 경우를 알려준다.
+  if (viewFilter !== 'all' && viewFilter !== newTaskCategory) {
+    showToast(`${CATEGORY_LABELS[newTaskCategory]} 할 일로 추가했습니다. (지금은 ${CATEGORY_LABELS[viewFilter]}만 보는 중)`);
+  }
 }
 
 addBtn.addEventListener('click', addNewTodo);
@@ -490,7 +619,7 @@ function executeDateChange(targetDateStr) {
 draftSaveBtn.addEventListener('click', () => {
   const draftText = todoInput.value.trim();
   if (draftText) {
-    window.TaskRepository.addTask(selectedDate, draftText);
+    window.TaskRepository.addTask(selectedDate, draftText, newTaskCategory);
   }
   todoInput.value = '';
   draftModal.style.display = 'none';
@@ -642,7 +771,7 @@ function renderLargeCalendar() {
     }
     cell.appendChild(numberDiv);
 
-    const tasks = window.TaskRepository.getTasksByDate(d.dateString);
+    const tasks = filterTasks(window.TaskRepository.getTasksByDate(d.dateString));
     if (tasks.length > 0) {
       const todoListUl = document.createElement('ul');
       todoListUl.className = 'cell-todo-list';
@@ -650,8 +779,17 @@ function renderLargeCalendar() {
       tasks.slice(0, 3).forEach((task) => {
         const itemLi = document.createElement('li');
         itemLi.className = `cell-todo-item ${task.done ? 'done' : ''}`;
-        itemLi.textContent = `· ${window.CalendarService.truncateText(task.text, 10)}`;
-        itemLi.title = task.text + (task.memo ? `\n(메모: ${task.memo})` : '');
+        itemLi.dataset.cat = task.category || '';
+
+        const dot = document.createElement('span');
+        dot.className = 'cell-cat-dot';
+        itemLi.appendChild(dot);
+        itemLi.appendChild(
+          document.createTextNode(window.CalendarService.truncateText(task.text, 10))
+        );
+
+        const catText = task.category ? `[${CATEGORY_LABELS[task.category]}] ` : '';
+        itemLi.title = catText + task.text + (task.memo ? `\n(메모: ${task.memo})` : '');
         todoListUl.appendChild(itemLi);
       });
 
@@ -723,6 +861,9 @@ function resetRepeatForm() {
   repeatInput.value = '';
   repeatDayInputs.forEach((cb) => { cb.checked = false; });
   repeatIncludePast.checked = false;
+  // 반복 일정은 대개 업무 쪽이므로 필터/입력 분류를 기본값으로 따라간다.
+  repeatCategory = (viewFilter === 'personal') ? 'personal' : newTaskCategory;
+  updateCategoryUI();
 }
 
 repeatToggleBtn.addEventListener('click', () => {
@@ -778,15 +919,15 @@ function applyRepeatTasks() {
       continue;
     }
 
-    // 같은 날짜에 같은 내용이 이미 있으면 중복 추가하지 않음
+    // 같은 날짜에 같은 분류로 같은 내용이 이미 있으면 중복 추가하지 않음
     const exists = window.TaskRepository.getTasksByDate(dateStr)
-      .some((t) => t.text.trim() === text);
+      .some((t) => t.text.trim() === text && (t.category || null) === repeatCategory);
     if (exists) {
       duplicated++;
       continue;
     }
 
-    window.TaskRepository.addTask(dateStr, text);
+    window.TaskRepository.addTask(dateStr, text, repeatCategory);
     added++;
   }
 
@@ -800,7 +941,7 @@ function applyRepeatTasks() {
     return;
   }
 
-  let message = `${added}개 날짜에 추가했습니다.`;
+  let message = `${CATEGORY_LABELS[repeatCategory]}로 ${added}개 날짜에 추가했습니다.`;
   if (duplicated > 0) message += ` (${duplicated}개는 이미 있어 건너뜀)`;
   if (skippedPast > 0) message += ` (지난 날짜 ${skippedPast}개 제외)`;
   showToast(message);
@@ -862,7 +1003,38 @@ function loadSettingsForm() {
 
   if ((settings.insertPosition || 'bottom') === 'top') radioInsertTop.checked = true;
   else radioInsertBottom.checked = true;
+
+  updateUncategorizedCount();
 }
+
+// ---------- 분류 없는 할 일 일괄 지정 ----------
+function updateUncategorizedCount() {
+  if (!uncatCountEl) return;
+  const count = window.TaskRepository.countUncategorized();
+  uncatCountEl.textContent = `${count}개`;
+
+  const noneLeft = count === 0;
+  if (assignWorkBtn) assignWorkBtn.disabled = noneLeft;
+  if (assignPersonalBtn) assignPersonalBtn.disabled = noneLeft;
+}
+
+function bulkAssignCategory(category) {
+  const count = window.TaskRepository.countUncategorized();
+  if (count === 0) {
+    showToast('분류 없는 할 일이 없습니다.');
+    return;
+  }
+  const ok = confirm(`분류가 없는 할 일 ${count}개를 모두 "${CATEGORY_LABELS[category]}"로 지정합니다.\n계속하시겠습니까?`);
+  if (!ok) return;
+
+  const changed = window.TaskRepository.assignCategoryToUncategorized(category);
+  updateUncategorizedCount();
+  refreshAfterDataChange();
+  showToast(`${changed}개를 ${CATEGORY_JOSA[category]} 지정했습니다.`);
+}
+
+if (assignWorkBtn) assignWorkBtn.addEventListener('click', () => bulkAssignCategory('work'));
+if (assignPersonalBtn) assignPersonalBtn.addEventListener('click', () => bulkAssignCategory('personal'));
 
 saveSettingsBtn.addEventListener('click', () => {
   const theme = (document.querySelector('input[name="theme-type"]:checked') || {}).value || 'dark';

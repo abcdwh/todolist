@@ -218,7 +218,7 @@ class TaskRepository {
     }
   }
 
-  addTask(date, text) {
+  addTask(date, text, category) {
     if (!this.data.tasksByDate[date]) {
       this.data.tasksByDate[date] = [];
     }
@@ -243,6 +243,7 @@ class TaskRepository {
       id: this.generateId(),
       text: text.trim(),
       done: false,
+      category: category || null,   // 'work' | 'personal' | null(미분류)
       memoHidden: true,
       memo: '',
       createdAt: Date.now(),
@@ -361,6 +362,37 @@ class TaskRepository {
     return found;
   }
 
+  // ---------- 분류(업무/개인) ----------
+  countUncategorized() {
+    let count = 0;
+    for (const date in this.data.tasksByDate) {
+      this.data.tasksByDate[date].forEach((t) => {
+        if (!t.category) count++;
+      });
+    }
+    return count;
+  }
+
+  /**
+   * 분류가 없는 할 일을 모두 지정한 분류로 바꾼다.
+   * updatedAt을 갱신해야 다른 기기로도 이 변경이 전달된다.
+   */
+  assignCategoryToUncategorized(category) {
+    let count = 0;
+    const now = Date.now();
+    for (const date in this.data.tasksByDate) {
+      this.data.tasksByDate[date].forEach((t) => {
+        if (!t.category) {
+          t.category = category;
+          t.updatedAt = now;
+          count++;
+        }
+      });
+    }
+    if (count > 0) this.saveTasksInternal();
+    return count;
+  }
+
   getSettings() {
     return this.data.settings;
   }
@@ -476,8 +508,18 @@ class TaskRepository {
         list.forEach((task) => {
           if (!task || !task.id) return;
           const prev = picked.get(task.id);
+
           if (!prev || this.taskStamp(task) >= this.taskStamp(prev.task)) {
-            picked.set(task.id, { task, date });
+            // 이긴 쪽을 채택하되, 분류(category)만은 잃지 않도록 넘겨받는다.
+            // 분류 기능이 없던 버전이 아직 남아 있는 기기에서 항목을 고치면
+            // 그 사본에는 category가 없어서, 그대로 덮어쓰면 분류가 지워진다.
+            const winner = Object.assign({}, task);
+            if (!winner.category && prev && prev.task.category) {
+              winner.category = prev.task.category;
+            }
+            picked.set(task.id, { task: winner, date });
+          } else if (!prev.task.category && task.category) {
+            prev.task.category = task.category;
           }
         });
       }
