@@ -1651,9 +1651,9 @@ body.dark-theme, body:not(.light-theme) {
 }
 
 .filter-chip[data-filter="all"].active {
-  background: var(--text-main);
-  border-color: var(--text-main);
-  color: var(--card-bg);
+  background: rgba(128, 128, 128, 0.22);
+  border-color: rgba(128, 128, 128, 0.38);
+  color: var(--text-main);
 }
 
 /* ---- 목록 항목 표시 ---- */
