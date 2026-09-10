@@ -20,7 +20,8 @@ class TaskRepository {
         insertPosition: 'bottom',
         showPassedXLargeCal: false
       },
-      tasksByDate: {}
+      tasksByDate: {},
+      deletedTasks: {}
     };
     this.filePath = null;
     this.bakFilePath = null;
@@ -155,7 +156,8 @@ class TaskRepository {
         insertPosition: 'bottom',
         showPassedXLargeCal: false
       },
-      tasksByDate: {}
+      tasksByDate: {},
+      deletedTasks: {}
     };
     this.saveTasksInternal();
   }
@@ -244,6 +246,7 @@ class TaskRepository {
       memoHidden: true,
       memo: '',
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       order: order
     };
 
@@ -260,6 +263,7 @@ class TaskRepository {
       const task = taskMap.get(id);
       if (task) {
         task.order = index;
+        task.updatedAt = Date.now();
         newList.push(task);
       }
     });
@@ -281,7 +285,8 @@ class TaskRepository {
       if (index !== -1) {
         this.data.tasksByDate[date][index] = {
           ...this.data.tasksByDate[date][index],
-          ...patch
+          ...patch,
+          updatedAt: Date.now()
         };
         found = true;
         break;
@@ -302,6 +307,8 @@ class TaskRepository {
         if (this.data.tasksByDate[date].length === 0) {
           delete this.data.tasksByDate[date];
         }
+        if (!this.data.deletedTasks) this.data.deletedTasks = {};
+        this.data.deletedTasks[taskId] = Date.now();
         found = true;
         break;
       }
@@ -330,6 +337,7 @@ class TaskRepository {
       if (!this.data.tasksByDate[targetDate]) {
         this.data.tasksByDate[targetDate] = [];
       }
+      taskToMove.updatedAt = Date.now();
       this.data.tasksByDate[targetDate].push(taskToMove);
       this.saveTasks();
       return true;
@@ -431,6 +439,86 @@ class TaskRepository {
       console.error('Failed to update storage path:', error);
       return false;
     }
+  }
+
+  // ==========================================================================
+  // 드라이브 동기화용 병합
+  //  - 할 일 한 건 단위로 최신본을 고름 (파일 통째로 덮어쓰지 않음)
+  //  - 삭제 기록(deletedTasks)이 있으면 되살아나지 않음
+  // ==========================================================================
+  taskStamp(task) {
+    return task.updatedAt || task.createdAt || 0;
+  }
+
+  /**
+   * 원격 데이터를 현재 데이터와 병합한다.
+   * @returns {boolean} 병합 결과가 로컬과 달라졌는지 여부
+   */
+  mergeRemote(remoteData) {
+    if (!remoteData || typeof remoteData !== 'object') return false;
+
+    const before = JSON.stringify(this.data.tasksByDate);
+
+    // 1) 삭제 기록 합치기 — 양쪽 중 더 나중 시각을 채택
+    const tombs = Object.assign({}, remoteData.deletedTasks || {});
+    const localTombs = this.data.deletedTasks || {};
+    for (const id in localTombs) {
+      if (!tombs[id] || localTombs[id] > tombs[id]) tombs[id] = localTombs[id];
+    }
+
+    // 2) 할 일을 id 기준으로 모으기 — 같은 id면 updatedAt이 최신인 쪽
+    const picked = new Map(); // id -> { task, date }
+    const collect = (data) => {
+      const byDate = (data && data.tasksByDate) || {};
+      for (const date in byDate) {
+        const list = byDate[date];
+        if (!Array.isArray(list)) continue;
+        list.forEach((task) => {
+          if (!task || !task.id) return;
+          const prev = picked.get(task.id);
+          if (!prev || this.taskStamp(task) >= this.taskStamp(prev.task)) {
+            picked.set(task.id, { task, date });
+          }
+        });
+      }
+    };
+    collect(remoteData);
+    collect(this.data); // 동점이면 로컬 우선
+
+    // 3) 삭제된 항목 제외 — 삭제가 수정보다 나중이면 삭제 유지
+    const merged = {};
+    picked.forEach(({ task, date }, id) => {
+      const deletedAt = tombs[id];
+      if (deletedAt && deletedAt >= this.taskStamp(task)) return;
+      if (!merged[date]) merged[date] = [];
+      merged[date].push(task);
+    });
+
+    this.data.tasksByDate = merged;
+    this.data.deletedTasks = this.pruneTombstones(tombs);
+    this.saveTasksInternal();
+
+    return JSON.stringify(this.data.tasksByDate) !== before;
+  }
+
+  // 오래된 삭제 기록 정리 (90일). 그냥 두면 파일이 계속 커짐.
+  pruneTombstones(tombs) {
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const kept = {};
+    for (const id in tombs) {
+      if (tombs[id] >= cutoff) kept[id] = tombs[id];
+    }
+    return kept;
+  }
+
+  // 드라이브로 올릴 형태 (설정은 기기별로 두고 동기화하지 않음)
+  getSyncPayload() {
+    return {
+      version: 2,
+      tasksByDate: this.data.tasksByDate,
+      deletedTasks: this.data.deletedTasks || {},
+      syncedAt: Date.now()
+    };
   }
 }
 

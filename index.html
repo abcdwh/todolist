@@ -209,6 +209,32 @@
             </div>
           </div>
 
+          <div class="form-section">
+            <h3 class="section-title">☁️ 구글 드라이브 동기화</h3>
+            <div class="option-desc" style="margin-bottom: 12px;">
+              구글 계정으로 연결하면 학교 컴퓨터와 휴대폰에서 같은 할 일을 볼 수 있습니다.
+              데이터는 <strong>본인 드라이브의 앱 전용 폴더</strong>에만 저장되며, 제작자를 포함한 누구도 열어볼 수 없습니다.
+              드라이브의 다른 파일에는 접근하지 않습니다.
+            </div>
+
+            <div class="sync-status" id="sync-status">
+              <span class="sync-dot" id="sync-dot"></span>
+              <span id="sync-status-text">연결되지 않음</span>
+            </div>
+
+            <div class="backup-buttons" style="margin-top: 12px;">
+              <button type="button" id="drive-connect-btn" class="backup-btn">
+                <span class="material-symbols-outlined" style="font-size: 16px !important;">cloud</span>구글 계정으로 연결
+              </button>
+              <button type="button" id="drive-sync-btn" class="backup-btn outline" style="display: none;">
+                <span class="material-symbols-outlined" style="font-size: 16px !important;">sync</span>지금 동기화
+              </button>
+              <button type="button" id="drive-disconnect-btn" class="backup-btn outline" style="display: none;">
+                <span class="material-symbols-outlined" style="font-size: 16px !important;">logout</span>연결 해제
+              </button>
+            </div>
+          </div>
+
           <!-- 로컬 저장 경로: Electron(데스크톱)에서 실행 중일 때만 표시됨 -->
           <div class="form-section" id="storage-path-section" style="display: none;">
             <h3 class="section-title">📁 로컬 데이터 저장 정보</h3>
@@ -298,7 +324,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="./src/calendarService.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="./src/taskRepository.js"></script>
+  <script src="./src/driveSync.js"></script>
   <script src="./src/app.js"></script>
 </body>
 </html>

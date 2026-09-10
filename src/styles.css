@@ -1527,3 +1527,28 @@ body.dragging-active {
 .repeat-past-label {
   align-self: flex-start;
 }
+
+/* ---------- 드라이브 동기화 상태 ---------- */
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-color);
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-strike);
+  flex: 0 0 auto;
+}
+
+.sync-dot.on { background: var(--primary-color); }
+.sync-dot.busy { background: var(--gold-color); }
+.sync-dot.error { background: var(--danger-color); }

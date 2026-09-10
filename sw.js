@@ -7,7 +7,7 @@
  * 재배포 시 제작자(Kimwonhee)와 출처를 반드시 표시해 주세요.
  */
 
-const CACHE_NAME = 'todomemo-v11';
+const CACHE_NAME = 'todomemo-v12';
 const FONT_CACHE = 'todomemo-fonts-v1';
 
 const ASSETS = [
@@ -21,7 +21,10 @@ const ASSETS = [
   './src/styles.css',
   './src/app.js',
   './src/calendarService.js',
-  './src/taskRepository.js'
+  './src/taskRepository.js',
+  './src/driveSync.js',
+  './privacy.html',
+  './terms.html'
 ];
 
 // 폰트 및 아이콘 CDN (오프라인 사용을 위해 런타임 캐싱)

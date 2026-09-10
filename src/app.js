@@ -74,6 +74,12 @@ const exportDataBtn = document.getElementById('export-data-btn');
 const importDataBtn = document.getElementById('import-data-btn');
 const importFileInput = document.getElementById('import-file-input');
 
+const driveConnectBtn = document.getElementById('drive-connect-btn');
+const driveSyncBtn = document.getElementById('drive-sync-btn');
+const driveDisconnectBtn = document.getElementById('drive-disconnect-btn');
+const syncStatusText = document.getElementById('sync-status-text');
+const syncDot = document.getElementById('sync-dot');
+
 const toastEl = document.getElementById('toast');
 
 // ---------- 상태 ----------
@@ -136,6 +142,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.warn('Service worker registration failed:', e);
     });
   }
+
+  // 드라이브 동기화는 화면을 다 그린 뒤에 조용히 시작 (첫 화면을 늦추지 않도록)
+  initDriveSync();
 });
 
 // ---------- 데이터 변경 후 공통 갱신 ----------
@@ -939,3 +948,166 @@ importFileInput.addEventListener('change', () => {
   };
   reader.readAsText(file);
 });
+
+// ==========================================================================
+// 구글 드라이브 동기화
+// ==========================================================================
+let syncTimer = null;
+let isSyncing = false;
+let isApplyingRemote = false;   // 병합 중 다시 동기화가 걸리는 것을 막음
+let lastSyncedAt = 0;
+
+function setSyncStatus(state, text) {
+  if (!syncDot || !syncStatusText) return;
+  syncDot.className = 'sync-dot' + (state ? ' ' + state : '');
+  syncStatusText.textContent = text;
+}
+
+function updateSyncButtons() {
+  const connected = window.DriveSync && window.DriveSync.wasConnected();
+  if (driveConnectBtn) driveConnectBtn.style.display = connected ? 'none' : '';
+  if (driveSyncBtn) driveSyncBtn.style.display = connected ? '' : 'none';
+  if (driveDisconnectBtn) driveDisconnectBtn.style.display = connected ? '' : 'none';
+}
+
+function describeLastSync() {
+  if (!lastSyncedAt) return '연결됨';
+  const mins = Math.floor((Date.now() - lastSyncedAt) / 60000);
+  if (mins < 1) return '연결됨 · 방금 동기화';
+  if (mins < 60) return `연결됨 · ${mins}분 전 동기화`;
+  return '연결됨 · ' + new Date(lastSyncedAt).toLocaleString('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  }) + ' 동기화';
+}
+
+/**
+ * 드라이브와 한 번 맞춘다.
+ * 항상 [내려받기 → 병합 → 올리기] 순서로 진행한다.
+ * 통째로 덮어쓰지 않기 때문에 두 기기에서 동시에 고쳐도 한쪽이 날아가지 않는다.
+ */
+async function syncWithDrive(options = {}) {
+  const { silent = false } = options;
+  if (isSyncing) return;
+  if (!window.DriveSync || !window.DriveSync.wasConnected()) return;
+  if (!navigator.onLine) {
+    setSyncStatus('error', '오프라인 · 연결되면 자동으로 맞춰집니다');
+    return;
+  }
+
+  isSyncing = true;
+  setSyncStatus('busy', '동기화 중...');
+
+  try {
+    if (!window.DriveSync.isReady) await window.DriveSync.init();
+
+    const remote = await window.DriveSync.download();
+
+    isApplyingRemote = true;
+    const changed = window.TaskRepository.mergeRemote(remote);
+    isApplyingRemote = false;
+
+    await window.DriveSync.upload(window.TaskRepository.getSyncPayload());
+
+    lastSyncedAt = Date.now();
+    localStorage.setItem('todomemo_last_sync', String(lastSyncedAt));
+    setSyncStatus('on', describeLastSync());
+
+    if (changed) {
+      refreshAfterDataChange();
+      if (!silent) showToast('다른 기기의 변경 사항을 불러왔습니다.');
+    }
+  } catch (err) {
+    isApplyingRemote = false;
+    console.error('동기화 실패:', err);
+
+    const msg = String(err && err.message);
+    if (msg.includes('popup') || msg.includes('interaction_required') || msg.includes('access_denied')) {
+      setSyncStatus('error', '다시 로그인이 필요합니다');
+      if (!silent) showToast('구글 로그인이 만료되었습니다. 설정에서 다시 연결해 주세요.');
+    } else {
+      setSyncStatus('error', '동기화 실패 · 나중에 다시 시도합니다');
+      if (!silent) showToast('동기화에 실패했습니다. 데이터는 기기에 그대로 있습니다.');
+    }
+  } finally {
+    isSyncing = false;
+  }
+}
+
+// 변경이 생기면 잠깐 모았다가 한 번에 올림 (타자 칠 때마다 올리지 않도록)
+function scheduleSync() {
+  if (isApplyingRemote) return;
+  if (!window.DriveSync || !window.DriveSync.wasConnected()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncWithDrive({ silent: true }), 3000);
+}
+
+// 로컬 저장이 일어날 때마다 동기화 예약
+(function hookSaveForSync() {
+  const repo = window.TaskRepository;
+  const originalSave = repo.saveTasksInternal.bind(repo);
+  repo.saveTasksInternal = function () {
+    originalSave();
+    scheduleSync();
+  };
+})();
+
+if (driveConnectBtn) {
+  driveConnectBtn.addEventListener('click', async () => {
+    try {
+      setSyncStatus('busy', '구글 로그인 창을 여는 중...');
+      if (!window.DriveSync.isReady) await window.DriveSync.init();
+      await window.DriveSync.signIn();
+      updateSyncButtons();
+      await syncWithDrive();
+      showToast('구글 드라이브에 연결되었습니다.');
+    } catch (err) {
+      console.error('연결 실패:', err);
+      setSyncStatus('error', '연결하지 못했습니다');
+      showToast('연결에 실패했습니다. 팝업 차단을 해제한 뒤 다시 시도해 주세요.');
+    }
+  });
+}
+
+if (driveSyncBtn) {
+  driveSyncBtn.addEventListener('click', () => syncWithDrive());
+}
+
+if (driveDisconnectBtn) {
+  driveDisconnectBtn.addEventListener('click', async () => {
+    await window.DriveSync.signOut();
+    lastSyncedAt = 0;
+    localStorage.removeItem('todomemo_last_sync');
+    updateSyncButtons();
+    setSyncStatus('', '연결되지 않음');
+    showToast('연결을 해제했습니다. 할 일은 이 기기에 그대로 남아 있습니다.');
+  });
+}
+
+// 앱을 다시 열거나 다른 탭에서 돌아왔을 때 최신 상태로
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncWithDrive({ silent: true });
+});
+window.addEventListener('online', () => syncWithDrive({ silent: true }));
+
+async function initDriveSync() {
+  if (!window.DriveSync) return;
+  updateSyncButtons();
+
+  const saved = Number(localStorage.getItem('todomemo_last_sync') || 0);
+  if (saved) lastSyncedAt = saved;
+
+  if (!window.DriveSync.wasConnected()) {
+    setSyncStatus('', '연결되지 않음');
+    return;
+  }
+
+  setSyncStatus('busy', '연결 확인 중...');
+  try {
+    await window.DriveSync.init();
+    await window.DriveSync.ensureToken();  // 조용히 토큰 갱신 (창 안 뜸)
+    await syncWithDrive({ silent: true });
+  } catch (err) {
+    console.warn('자동 연결 실패:', err);
+    setSyncStatus('error', '다시 로그인이 필요합니다');
+  }
+}
